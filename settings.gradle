@@ -1,0 +1,2 @@
+include ':app', ':deepbisdk'
+rootProject.name='DeepBiSdk'
