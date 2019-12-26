@@ -33,11 +33,11 @@ import java.util.TimerTask;
 public class MonitorService extends Service {
     private static final String LOG_TAG = "MonitorService";
 
-    private static final int TIMER_TICK = 4000; // 4 senconds
+    private static final int TIMER_TICK = 4000; // 4 seconds
     private static final long LENGTH_5MB = 5 * 1024 * 1024;
 
-    public static void startService() {
-        Intent intent = new Intent(DeepBiManager.getAppContext(), MonitorService.class);
+    public static void startService(Activity activity) {
+        Intent intent = new Intent(activity, MonitorService.class);
         DeepBiManager.getAppContext().startService(intent);
     }
 
@@ -54,39 +54,36 @@ public class MonitorService extends Service {
     private long mTimePow = 0;
     private double mNextTick = 0;
     private double mCurrentTick = 0;
+
+    private ArrayList<String> pageVisible = new ArrayList<>();
+    private ArrayList<String> pageStack = new ArrayList<>();
+
     private Timer dataFiringTimer;
+    private TimerTask dataFiringTimerTask;
 
-    private String currentPageTitle;
-
-    private TimerTask dataFiringTimerTask = new TimerTask() {
-        @Override
-        public void run() {
-            if (mCurrentTick == mNextTick) {
-                fireEvents("page-ping");
-                mTimePow++;
-                mNextTick = Math.pow(2, mTimePow);
-            }
-
-            mCurrentTick++;
-        }
-    };
+    private int activeTime = 0;
+    private int idleTime = 0;
+    private int deltaTime = 0;
+    private Timer appStatusCountingTimer;
+    private TimerTask appStatusCountingTimerTask;
 
     Application.ActivityLifecycleCallbacks lifecycleCallbacks = new Application.ActivityLifecycleCallbacks() {
         @Override
         public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+            pageStack.add(0, activity.getLocalClassName());
         }
 
         @Override
         public void onActivityStarted(@NonNull Activity activity) {
+            pageVisible.add(0, activity.getLocalClassName());
+            deltaTime = 0;
+            fireEvents("page-open");
+            stopDataTimer();
+            startDataTimer();
         }
 
         @Override
         public void onActivityResumed(@NonNull Activity activity) {
-            // Call page ping
-            currentPageTitle = activity.getLocalClassName();
-            fireEvents("page-open ");
-            stopDataTimer();
-            startDataTimer();
         }
 
         @Override
@@ -95,6 +92,7 @@ public class MonitorService extends Service {
 
         @Override
         public void onActivityStopped(@NonNull Activity activity) {
+            pageVisible.remove(activity.getLocalClassName());
         }
 
         @Override
@@ -103,6 +101,7 @@ public class MonitorService extends Service {
 
         @Override
         public void onActivityDestroyed(@NonNull Activity activity) {
+            pageStack.remove(activity.getLocalClassName());
         }
     };
 
@@ -146,7 +145,9 @@ public class MonitorService extends Service {
         // Start Timer
         String pageOpen1stTime = DeepBiManager.getPerference().getString("PageOpened1stTime", null);
         if (!TextUtils.isEmpty(pageOpen1stTime)) {
-            currentPageTitle = pageOpen1stTime;
+            deltaTime = 0;
+            pageVisible.add(0, pageOpen1stTime);
+            pageStack.add(0, pageOpen1stTime);
             fireEvents("page-open");
             DeepBiManager.unregisterLifeCycleCallBack();
         }
@@ -155,17 +156,19 @@ public class MonitorService extends Service {
         ((Application) DeepBiManager.getAppContext()).registerActivityLifecycleCallbacks(lifecycleCallbacks);
 
         startDataTimer();
+        startAppStatusCountingTimerTask();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        mDataCollectorManager = null;
-        mDatabaseAccess = null;
-        mQueueManager = null;
-        mNetworkManager = null;
         stopDataTimer();
+        stopAppStatusCountingTimerTask();
         ((Application) DeepBiManager.getAppContext()).unregisterActivityLifecycleCallbacks(lifecycleCallbacks);
+
+        deltaTime = 0;
+        idleTime = 0;
+        activeTime = 0;
     }
 
     private void startDataTimer() {
@@ -179,10 +182,17 @@ public class MonitorService extends Service {
             @Override
             public void run() {
                 Log.d(LOG_TAG, "DeepBi SDK fireEvents mCurrentTick=" + mCurrentTick + " , nextTick=" + mNextTick);
+                if (pageStack.isEmpty()) {
+                    stopSelf();
+                    return;
+                }
+
+                deltaTime += TIMER_TICK / 1000;
                 if (mCurrentTick == mNextTick) {
                     fireEvents("page-ping");
                     mTimePow++;
                     mNextTick = Math.pow(2, mTimePow);
+                    deltaTime = 0;
                 }
 
                 mCurrentTick++;
@@ -201,12 +211,38 @@ public class MonitorService extends Service {
         }
     }
 
+    private void startAppStatusCountingTimerTask() {
+        stopAppStatusCountingTimerTask();
+        appStatusCountingTimer = new Timer();
+        appStatusCountingTimerTask = new TimerTask() {
+            @Override
+            public void run() {
+                if (isInBackground()) {
+                    idleTime++;
+                } else {
+                    activeTime++;
+                }
+            }
+        };
+        appStatusCountingTimer.schedule(appStatusCountingTimerTask, 1000, 1000);
+    }
+
+    private void stopAppStatusCountingTimerTask() {
+        if (appStatusCountingTimer != null) {
+            appStatusCountingTimer.cancel();
+            appStatusCountingTimer = null;
+            appStatusCountingTimerTask.cancel();
+            appStatusCountingTimerTask = null;
+        }
+    }
+
     private void fireEvents(String eventType) {
-        Log.d(LOG_TAG, "DeepBi SDK fireEvents: eventType=" + eventType + ",pageTitle=" + currentPageTitle);
+        String currentPageTitle = getPageTitle();
         if (currentPageTitle == null) {
-            stopSelf();
+//            stopSelf();
             return;
         }
+        Log.d(LOG_TAG, "DeepBi SDK fireEvents: eventType=" + eventType + ",pageTitle=" + currentPageTitle);
 
         // Check for expired hits
         mDatabaseAccess.clearExpiredHits();
@@ -215,6 +251,12 @@ public class MonitorService extends Service {
         HitEvent hitEvent = new HitEvent(eventType, currentPageTitle);
         hitEvent.setTimemillis(Calendar.getInstance().getTimeInMillis());
         mDataCollectorManager.putData(hitEvent);
+
+        // Active/Idle Time
+        hitEvent.getUser().getAttention().setIdle(idleTime);
+        hitEvent.getUser().getAttention().setActive(activeTime);
+        hitEvent.getUser().getAttention().setDeltatime(deltaTime);
+        Log.d(LOG_TAG, "DeepBi SDK fireEvents: idleTime=" + idleTime + ",activeTime=" + activeTime + ",deltaTime=" + deltaTime);
 
         // Stored Hit event
         mQueueManager.addHitEvent(hitEvent);
@@ -252,7 +294,7 @@ public class MonitorService extends Service {
         Utility.writeFile(listSendHit);
 
         // If not have network
-        if (!Utility.hasNetworkConnection(DeepBiManager.getAppContext())) {
+        if (!Utility.hasNetworkConnection(this)) {
             for (HitEvent event : listSendHit) {
                 mQueueManager.addHitEvent(event);
             }
@@ -278,5 +320,24 @@ public class MonitorService extends Service {
                 mQueueManager.addHitEvent(event);
             }
         }
+    }
+
+    private String getPageTitle() {
+        if (!pageVisible.isEmpty()) {
+            return pageVisible.get(0);
+        }
+        if (pageStack.isEmpty()) {
+            return null;
+        } else {
+            return pageStack.get(0);
+        }
+    }
+
+    private boolean isInBackground() {
+        return pageVisible.isEmpty();
+    }
+
+    private boolean isAppRunning() {
+        return !pageStack.isEmpty();
     }
 }

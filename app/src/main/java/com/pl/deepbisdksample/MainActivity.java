@@ -11,6 +11,8 @@ import android.view.View;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.pl.deepbisdk.DeepBiManager;
+
 public class MainActivity extends Activity {
 
     @Override
@@ -30,6 +32,8 @@ public class MainActivity extends Activity {
                     },
                     1000);
         }
+
+        DeepBiManager.startCollecting(this);
     }
 
     public void onClick(View v) {

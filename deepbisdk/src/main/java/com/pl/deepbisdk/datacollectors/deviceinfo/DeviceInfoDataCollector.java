@@ -58,6 +58,11 @@ public class DeviceInfoDataCollector extends BaseDataCollector {
         Date now = new Date();
         int offsetFromUtc = tz.getOffset(now.getTime()) / 1000 / 60;
         event.setUtcoffset(offsetFromUtc);
+
+        // Attention
+        HitEvent.Attention attention = new HitEvent.Attention();
+
+        user.setAttention(attention);
     }
 
     private HitEvent.Device generateHitDevice() {

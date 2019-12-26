@@ -39,8 +39,8 @@ public class DeepBiManager {
         ApiClient.setBaseUrl(dataSetKey);
     }
 
-    public static void startCollecting() {
-        MonitorService.startService();
+    public static void startCollecting(Activity acitivity) {
+        MonitorService.startService(acitivity);
     }
 
     public static void stopCollecting() {
@@ -73,7 +73,6 @@ public class DeepBiManager {
             // Call page ping
             Log.d(LOG_TAG, "MonitorService 1 onActivityCreated");
             SCREEN_SIZE_INCH = Utility.getScreenSizeInches(activity);
-            startCollecting();
             mPerference.edit().putString("PageOpened1stTime", activity.getLocalClassName()).commit();
         }
 

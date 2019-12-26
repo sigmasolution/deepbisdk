@@ -51,10 +51,6 @@ public class NetworkManager {
 
     }
 
-    public void stopCurrentContentUpload() {
-
-    }
-
     public interface PostHitListener {
         void onPostHitFinish(boolean isSucess, ArrayList<HitEvent> listSent);
     }

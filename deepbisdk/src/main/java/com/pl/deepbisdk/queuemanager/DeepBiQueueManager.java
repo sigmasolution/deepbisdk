@@ -28,6 +28,9 @@ public class DeepBiQueueManager {
 
     public HitEvent popHitEvent() {
         synchronized (this) {
+            if (mHitArray.isEmpty()) {
+                return null;
+            }
             return mHitArray.remove(0);
         }
     }

@@ -10,6 +10,6 @@ public class DeepSampleApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
-        DeepBiManager.init(this, "eRjHk30JNe3R", "sa6zwp0rmXdzv1c96CJDW1kP");
+        DeepBiManager.init(this, "Wc5mtvvGLixE", "6tzFKdHYAiwvIwrlsbW0cdQH");
     }
 }

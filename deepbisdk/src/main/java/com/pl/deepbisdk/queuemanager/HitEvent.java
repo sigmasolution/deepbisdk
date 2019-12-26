@@ -214,21 +214,17 @@ public class HitEvent implements Serializable {
 
     public static class Attention {
 
-        @SerializedName("total")
-        @Expose
-        private int total;
-
         @SerializedName("active")
         @Expose
         private int active;
 
-        public int getTotal() {
-            return total;
-        }
+        @SerializedName("idle")
+        @Expose
+        private int idle;
 
-        public void setTotal(int total) {
-            this.total = total;
-        }
+        @SerializedName("deltatime")
+        @Expose
+        private int deltatime;
 
         public int getActive() {
             return active;
@@ -236,6 +232,22 @@ public class HitEvent implements Serializable {
 
         public void setActive(int active) {
             this.active = active;
+        }
+
+        public int getIdle() {
+            return idle;
+        }
+
+        public void setIdle(int idle) {
+            this.idle = idle;
+        }
+
+        public int getDeltatime() {
+            return deltatime;
+        }
+
+        public void setDeltatime(int deltatime) {
+            this.deltatime = deltatime;
         }
     }
 
