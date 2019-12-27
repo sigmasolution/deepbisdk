@@ -1,5 +1,4 @@
 apply plugin: 'com.android.library'
-apply from: 'maven-push.gradle'
 
 android {
     compileSdkVersion 29
@@ -39,23 +38,3 @@ dependencies {
     implementation 'com.squareup.okhttp3:logging-interceptor:3.8.0'
     implementation 'com.readystatesoftware.sqliteasset:sqliteassethelper:2.0.1'
 }
-
-////task for Sonatype Nexus OSS
-//uploadArchives {
-//    repositories {
-//        mavenDeployer {
-//            repository(
-//                    url: "${nexusUrl}/content/repositories/releases") {
-//                authentication(userName: nexusUsername, password: nexusPassword)
-//            }
-//            snapshotRepository(
-//                    url: "${nexusUrl}/content/repositories/snapshots") {
-//                authentication(userName: nexusUsername, password: nexusPassword)
-//            }
-//
-//            pom.version = "2.0.0.1"
-//            pom.artifactId = "spflib"
-//            pom.groupId = "it.polimi.spf"
-//        }
-//    }
-//}
